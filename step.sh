@@ -98,13 +98,15 @@ function validate_android_inputs {
 
 function get_test_package_arn {
     # Get most recent test bundle ARN
-    set +o errexit
-    validate_required_variable "test_package_name" "${test_package_name}"
-    test_package_arn=$(set -eu; set -o pipefail; aws devicefarm list-uploads --arn="$device_farm_project" --query="uploads[?name=='${test_package_name}'] | max_by(@, &created).arn" --output=json | jq -r .)
-    if [[ "$?" -ne 0 ]]; then
-        echo_fail "Unable to find a test package named '${test_package_name}' in your device farm project. Please make sure that test_package_name corresponds to the basename (not the full path) of the test package which should have been previously uploaded by the aws-file-deploy step. If the test bundle is too old it may not be found; try re-uploading it. See https://github.com/peartherapeutics/bitrise-aws-device-farm-file-deploy"
+    if [[ "$test_type" != "BUILTIN_EXPLORER" ]] ; then
+        set +o errexit
+        validate_required_variable "test_package_name" "${test_package_name}"
+        test_package_arn=$(set -eu; set -o pipefail; aws devicefarm list-uploads --arn="$device_farm_project" --query="uploads[?name=='${test_package_name}'] | max_by(@, &created).arn" --output=json | jq -r .)
+        if [[ "$?" -ne 0 ]]; then
+            echo_fail "Unable to find a test package named '${test_package_name}' in your device farm project. Please make sure that test_package_name corresponds to the basename (not the full path) of the test package which should have been previously uploaded by the aws-file-deploy step. If the test bundle is too old it may not be found; try re-uploading it. See https://github.com/peartherapeutics/bitrise-aws-device-farm-file-deploy"
+        fi
+        set -o errexit
     fi
-    set -o errexit
 }
 
 function get_upload_status {
@@ -336,8 +338,11 @@ echo
 validate_required_input "access_key_id" "${access_key_id}"
 validate_required_input "secret_access_key" "${secret_access_key}"
 validate_required_input "device_farm_project" "${device_farm_project}"
-validate_required_input "test_package_name" "${test_package_name}"
 validate_required_input "test_type" "${test_type}"
+
+if [[ "$test_type" != "BUILTIN_EXPLORER" ]] ; then
+    validate_required_input "test_package_name" "${test_package_name}"
+fi
 
 options=("METERED" "UNMETERED")
 validate_required_input_with_options "billing_method" "${billing_method}" "${options[@]}"
